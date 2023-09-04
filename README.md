@@ -4,18 +4,18 @@ A "library" for completing Xbox Security Method 3 challenges used by the Xbox 36
 
 ## What this does
 
-This library allows an Xbox 360 controller emulator to authenticate with modded consoles / development kits where the controller encryption keys from the keyvault are known.
+This library allows an Xbox 360 controller emulator to authenticate with modded consoles (where the controller encryption keys from the keyvault are known) and development kits.
 
 ## What this DOES NOT do
 
-This library **can not** complete challenges for any console that it does not have pre-existing keys for. Yet.
+This library **can not** complete challenges for any retail console that it does not have pre-existing keys for. Yet.
 
 ## TODO
 
 - Make sure this is able to work on embedded platforms (e.g. Pi Pico).
 - Document more of the values used in the identification packet.
 - Unit tests and being able to verify packets from a controller to be valid.
-- Key derivation from console ID. Hopefully. Maybe. Sometime. In the far future.
+- Key derivation from a retail console ID. Hopefully. Maybe. Sometime. In the far future.
 
 ## Credits
 
@@ -39,7 +39,7 @@ void xsm3_setup_request_handler(usb_setup_request* ctrl) {
         case 0x81:
             xsm3_initialise_state();
             xsm3_set_identification_data(xsm3_id_data_ms_controller);
-            xsm3_import_kv_keys(kv_key_1, kv_key_2); // you must fetch these from your own console!
+            xsm3_import_kv_keys(kv_key_1, kv_key_2); // you must fetch these from your own console! optional for devkit
             ctrl->send_data(xsm3_id_data_ms_controller);
             break;
         case 0x82:

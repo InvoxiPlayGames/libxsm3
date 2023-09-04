@@ -1,6 +1,6 @@
 /*
     xsm3.c - part of libxsm3
-    Copyright (C) 2022 InvoxiPlayGames
+    Copyright (C) 2022-2023 InvoxiPlayGames
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -42,7 +42,7 @@ const uint8_t xsm3_id_data_ms_controller[0x1D] = {
     0x03, 0x00, 0x01, 0x01, 0x16
 };
 
-// constant variables (not exposed outside of this module)
+// static global keys from the keyvault (shared across every retail system)
 static const uint8_t xsm3_key_0x1D[0x10] = {
     0xE3, 0x5B, 0xFB, 0x1C, 0xCD, 0xAD, 0x32, 0x5B,
 	0xF7, 0x0E, 0x07, 0xFD, 0x62, 0x3D, 0xA7, 0xC4
@@ -50,6 +50,29 @@ static const uint8_t xsm3_key_0x1D[0x10] = {
 static const uint8_t xsm3_key_0x1E[0x10] = {
 	0x8F, 0x29, 0x08, 0x38, 0x0B, 0x5B, 0xFE, 0x68,
 	0x7C, 0x26, 0x46, 0x2A, 0x51, 0xF2, 0xBC, 0x19
+};
+
+/*
+global device keys from devkit keyvaults
+static const uint8_t xsm3_key_0x1D[0x10] = {
+    0xC2, 0x15, 0xE5, 0x5E, 0xE5, 0x51, 0x94, 0x2A,
+    0xEC, 0x3D, 0x45, 0xEC, 0xB6, 0xE6, 0xF2, 0x16
+};
+static const uint8_t xsm3_key_0x1E[0x10] = {
+    0xC7, 0x45, 0xAD, 0x1F, 0x08, 0x0B, 0xD9, 0xE9,
+    0x9B, 0x1C, 0x34, 0xE3, 0xA4, 0x6D, 0xC8, 0xC4
+};
+*/
+
+// devkit recovery keys for generating 0x23/0x24 keys from console ID
+// these keys do not work on a retail system.
+static const uint8_t xsm3_root_key_0x23[0x10] = {
+    0xB9, 0xE0, 0x9E, 0x68, 0x04, 0x83, 0x91, 0xB3,
+    0x32, 0x45, 0x7A, 0xDA, 0x43, 0x6B, 0x80, 0xAD
+};
+static const uint8_t xsm3_root_key_0x24[0x10] = {
+	0x92, 0x5D, 0x29, 0x6E, 0xB0, 0x61, 0x0B, 0xF1,
+    0xD6, 0x29, 0x3B, 0xC8, 0xC7, 0xD9, 0x32, 0xBC
 };
 
 // response to give to the given challenge command
@@ -61,6 +84,8 @@ uint8_t xsm3_console_id[0x8];
 static uint8_t xsm3_kv_2des_key_1[0x10];
 // buffer to store the second key fetched from the KV (0x24)
 static uint8_t xsm3_kv_2des_key_2[0x10];
+// have we been given a KV key yet?
+static bool xsm3_has_kv_keys = false;
 
 // temporary buffer for decrypting packets
 static uint8_t xsm3_decryption_buffer[0x30];
@@ -138,9 +163,20 @@ void xsm3_set_identification_data(const uint8_t id_data[0x1D]) {
 }
 
 void xsm3_import_kv_keys(const uint8_t key1[0x10], const uint8_t key2[0x10]) {
+    xsm3_has_kv_keys = true;
     // copy the provided keys into our buffers
     memcpy(xsm3_kv_2des_key_1, key1, sizeof(xsm3_kv_2des_key_1));
     memcpy(xsm3_kv_2des_key_2, key2, sizeof(xsm3_kv_2des_key_2));
+}
+
+void xsm3_generate_kv_keys(const uint8_t console_id[0x8]) {
+    xsm3_has_kv_keys = true;
+    // make a sha-1 hash of the console id
+    uint8_t console_id_hash[0x14];
+    ExCryptSha(console_id, 0x8, NULL, 0, NULL, 0, console_id_hash, 0x14);
+    // encrypt it with the root keys for 1st party controllers
+    UsbdSecXSM3AuthenticationCrypt(xsm3_root_key_0x23, console_id_hash, 0x10, xsm3_kv_2des_key_1, 1);
+    UsbdSecXSM3AuthenticationCrypt(xsm3_root_key_0x24, console_id_hash + 0x4, 0x10, xsm3_kv_2des_key_2, 1);
 }
 
 void xsm3_do_challenge_init(uint8_t challenge_packet[0x22]) {
@@ -167,7 +203,8 @@ void xsm3_do_challenge_init(uint8_t challenge_packet[0x22]) {
         XSM3_printf("[ MAC failed when validating challenge init! ]\n");
     }
 
-    // TODO: somehow..derive the kv keys from the console certificate
+    // if we haven't got our KV keys yet, generate it (devkit only)
+    if (!xsm3_has_kv_keys) xsm3_generate_kv_keys(xsm3_console_id);
 
     // the random value is swapped at an 8 byte boundary
     memcpy(xsm3_random_console_data_swap, xsm3_random_console_data + 0x8, 0x8);
