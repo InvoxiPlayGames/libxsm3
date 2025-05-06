@@ -15,7 +15,6 @@ This library **can not** complete challenges for any retail console that it does
 - Make sure this is able to work on embedded platforms (e.g. Pi Pico).
 - Document more of the values used in the identification packet.
 - Unit tests and being able to verify packets from a controller to be valid.
-- Key derivation from a retail console ID. Hopefully. Maybe. Sometime. In the far future.
 
 ## Credits
 
