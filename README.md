@@ -4,11 +4,7 @@ A "library" for completing Xbox Security Method 3 challenges used by the Xbox 36
 
 ## What this does
 
-This library allows an Xbox 360 controller emulator to authenticate with modded consoles (where the controller encryption keys from the keyvault are known) and development kits.
-
-## What this DOES NOT do
-
-This library **can not** complete challenges for any retail console that it does not have pre-existing keys for. Yet.
+This library allows an Xbox 360 controller emulator to authenticate with retail consoles.
 
 ## TODO
 
@@ -16,10 +12,15 @@ This library **can not** complete challenges for any retail console that it does
 - Document more of the values used in the identification packet.
 - Unit tests and being able to verify packets from a controller to be valid.
 
+## Uses
+
+libxsm3 is used in the [Santroller](https://github.com/santroller/santroller) and [portal_of_flipper](https://github.com/sanjay900/portal_of_flipper) projects.
+
 ## Credits
 
 - [oct0xor](https://github.com/oct0xor) for reversing, documenting and implementing much of the process. ([blog post](https://oct0xor.github.io/2017/05/03/xsm3/), [source code](https://github.com/oct0xor/xbox_security_method_3))
 - [emoose](https://github.com/emoose) for reimplementing many of the XeCrypt functions in [ExCrypt](https://github.com/emoose/ExCrypt).
+- [sanjay900](https://github.com/sanjay900) and an anonymous contributor for helping discover the retail keys.
 
 ## License 
 
@@ -38,7 +39,6 @@ void xsm3_setup_request_handler(usb_setup_request* ctrl) {
         case 0x81:
             xsm3_initialise_state();
             xsm3_set_identification_data(xsm3_id_data_ms_controller);
-            xsm3_import_kv_keys(kv_key_1, kv_key_2); // you must fetch these from your own console! optional for devkit
             ctrl->send_data(xsm3_id_data_ms_controller);
             break;
         case 0x82:
