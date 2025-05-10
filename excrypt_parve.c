@@ -28,13 +28,15 @@ void ExCryptParveEcb(const uint8_t* key, const uint8_t* sbox, const uint8_t* inp
 void ExCryptParveCbcMac(const uint8_t* key, const uint8_t* sbox, const uint8_t* iv, const uint8_t* input, uint32_t input_size, uint8_t* output)
 {
   uint64_t block;
+  uint64_t temp;
   memcpy(&block, iv, 8);
 
   if (input_size >= 8)
   {
     for (uint32_t i = 0; i < input_size / 8; i++)
     {
-      block ^= *(uint64_t*)&input[i * 8];
+      memcpy(&temp, input + (i * 8), sizeof(temp));
+      block ^= temp;
       ExCryptParveEcb(key, sbox, (uint8_t*)&block, (uint8_t*)&block);
     }
   }
@@ -69,7 +71,8 @@ void ExCryptChainAndSumMac(const uint32_t* cd, const uint32_t* ab, const uint32_
 
     input += 2;
   }
-
-  output[0] = SWAP32((out0 + ab1) % 0x7FFFFFFF);
-  output[1] = SWAP32((out1 + cd1) % 0x7FFFFFFF);
+  out0 = SWAP32((out0 + ab1) % 0x7FFFFFFF);
+  out1 = SWAP32((out1 + cd1) % 0x7FFFFFFF);
+  memcpy(output, &out0,  sizeof(uint32_t));
+  memcpy(output+1, &out1,  sizeof(uint32_t));
 }

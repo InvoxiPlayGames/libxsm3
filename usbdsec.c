@@ -22,7 +22,7 @@
 #include <stdio.h>
 #include "excrypt.h"
 
-static uint8_t UsbdSecSboxData[256] = {
+static uint8_t UsbdSecSboxData[256] __attribute__ ((aligned(4))) = {
 	0xB0, 0x3D, 0x9B, 0x70, 0xF3, 0xC7, 0x80, 0x60,
 	0x73, 0x9F, 0x6C, 0xC0, 0xF1, 0x3D, 0xBB, 0x40,
 	0xB3, 0xC8, 0x37, 0x14, 0xDF, 0x49, 0xDA, 0xD4,
@@ -57,7 +57,7 @@ static uint8_t UsbdSecSboxData[256] = {
 	0xE3, 0x0D, 0xAE, 0x7E, 0x33, 0x69, 0x80, 0x40
 };
 
-static uint8_t UsbdSecPlainTextData[128] = {
+static uint8_t UsbdSecPlainTextData[128] __attribute__ ((aligned(4))) = {
 	0xD1, 0xD2, 0xF2, 0x80, 0x6E, 0xBA, 0x0C, 0xC0,
 	0xB6, 0xC4, 0xC9, 0xD8, 0x61, 0x75, 0x1D, 0x1A,
 	0x3F, 0x95, 0x58, 0xBE, 0xD8, 0x0D, 0xE2, 0xC0,
@@ -91,12 +91,13 @@ void UsbdSecXSM3AuthenticationCrypt(const uint8_t *key, const uint8_t *input, si
 	ExCryptDes3Cbc(&des, input, length, output, iv, encrypt);
 }
 
-void UsbdSecXSM3AuthenticationMac(const uint8_t *key, const uint8_t *salt, uint8_t *input, size_t length, uint8_t *output) {
+void UsbdSecXSM3AuthenticationMac(const uint8_t *key, uint8_t *salt, uint8_t *input, size_t length, uint8_t *output) {
 	EXCRYPT_DES3_STATE des3;
 	EXCRYPT_DES_STATE des;
 	uint64_t sk[3];
 	uint8_t iv[8];
 	uint8_t temp[8];
+	uint64_t input_temp;
 	int i;
 
 	// clear iv + temp value of stack junk
@@ -109,12 +110,15 @@ void UsbdSecXSM3AuthenticationMac(const uint8_t *key, const uint8_t *salt, uint8
 	ExCryptDesKey(&des, (uint8_t *)&sk[0]);
 	// if we have a salt, encrypt it into the temp value
 	if (salt) {
-		*(uint64_t *)salt = SWAP64(SWAP64(*(uint64_t *)salt) + 1); // no idea what this does
+		memcpy(&input_temp, salt, sizeof(input_temp));
+		input_temp = SWAP64(SWAP64(input_temp) + 1);
+		memcpy(salt, &input_temp, sizeof(input_temp)); // no idea what this does
 		ExCryptDesEcb(&des, salt, temp, 1);
 	}
 	// for every 8 byte input block, xor the temp value with it and encrypt over itself
 	for (i = 0; i < length; i += 8) {
-		*(uint64_t *)temp ^= *(uint64_t *)(input + i);
+		memcpy(&input_temp, input+i, sizeof(input_temp));
+		*(uint64_t *)temp ^= input_temp;
 		ExCryptDesEcb(&des, temp, temp, 1);
 	}
 	// xor the highest bit of the temp value
@@ -135,12 +139,15 @@ void UsbdSecXSMAuthenticationAcr(const uint8_t *console_id, const uint8_t *input
 	uint8_t cd[8];
 
 	// fill in the input block with the first 4 bytes of input data and the first 4 bytes of the console ID
-	*(uint32_t *)block = *(uint32_t *)input;
-	*(uint32_t *)(block + 4) = *(uint32_t *)console_id;
+	memcpy(block, input, 4);
+	memcpy(block+4, console_id, 4);
 	// run custom "parve" crypto algorithms. idk whar they do
 	ExCryptParveEcb(key, UsbdSecSboxData, input + 0x10, iv);
 	ExCryptParveEcb(key, UsbdSecSboxData, block, cd);
 	ExCryptParveCbcMac(key, UsbdSecSboxData, iv, UsbdSecPlainTextData, 0x80, ab);
 	ExCryptChainAndSumMac((uint32_t *)cd, (uint32_t *)ab, (uint32_t *)UsbdSecPlainTextData, 0x20, (uint32_t *)output);
-	*(uint64_t *)output ^= *(uint64_t *)ab;
+	uint64_t current;
+	memcpy(&current, output, sizeof(current));
+	current ^= *(uint64_t *)ab;
+	memcpy(output, &current, sizeof(current));
 }
