@@ -160,15 +160,15 @@ void xsm3_set_identification_data(const uint8_t id_data[0x1D]) {
     // contains serial number (len: 0xC), unknown (len: 0x2) and the "category node" to use (len: 0x1)
     memcpy(xsm3_identification_data, id_data, 0xF);
     // vendor ID
-    *(unsigned short *)(xsm3_identification_data + 0x10) = *(unsigned short *)(id_data + 0xF);
+    memcpy(xsm3_identification_data + 0x10, id_data + 0xF, sizeof(unsigned short));
     // product ID
-	*(unsigned short *)(xsm3_identification_data + 0x12) = *(unsigned short *)(id_data + 0x11);
+    memcpy(xsm3_identification_data + 0x12, id_data + 0x11, sizeof(unsigned short));
     // unknown
-	*(unsigned char *)(xsm3_identification_data + 0x14) = *(unsigned char *)(id_data + 0x13);
+    memcpy(xsm3_identification_data + 0x14, id_data + 0x13, sizeof(unsigned char));
     // unknown
-	*(unsigned char *)(xsm3_identification_data + 0x15) = *(unsigned char *)(id_data + 0x16);
+    memcpy(xsm3_identification_data + 0x15, id_data + 0x16, sizeof(unsigned char));
     // unknown
-	*(unsigned short *)(xsm3_identification_data + 0x16) = *(unsigned short *)(id_data + 0x14);
+    memcpy(xsm3_identification_data + 0x16, id_data + 0x14, sizeof(unsigned short));
 }
 
 void xsm3_import_kv_keys(const uint8_t key1[0x10], const uint8_t key2[0x10]) {
@@ -204,7 +204,6 @@ void xsm3_do_challenge_init(uint8_t challenge_packet[0x22]) {
     memcpy(xsm3_random_console_data, xsm3_decryption_buffer, 0x10);
     // next 0x8 bytes are from the console certificate
     memcpy(xsm3_console_id, xsm3_decryption_buffer + 0x10, 0x8);
-
     // last 4 bytes of the packet are the last 4 bytes of the MAC
     UsbdSecXSM3AuthenticationMac(xsm3_key_0x1E, NULL, challenge_packet + 5, 0x18, incoming_packet_mac);
     // validate the MAC
@@ -212,7 +211,7 @@ void xsm3_do_challenge_init(uint8_t challenge_packet[0x22]) {
         XSM3_printf("[ MAC failed when validating challenge init! ]\n");
     }
 
-    // if we haven't got our KV keys yet, generate it (devkit only)
+    // if we haven't got our KV keys yet, generate it
     if (!xsm3_has_kv_keys) xsm3_generate_kv_keys(xsm3_console_id);
 
     // the random value is swapped at an 8 byte boundary
@@ -274,7 +273,6 @@ void xsm3_do_challenge_verify(uint8_t challenge_packet[0x16]) {
     if (memcmp(incoming_packet_mac, challenge_packet + 0x5 + 0x8, 0x8) != 0) {
         XSM3_printf("[ MAC failed when validating challenge verify! ]\n");
     }
-
     // clear response buffers
     memset(xsm3_challenge_response, 0, sizeof(xsm3_challenge_response));
     memset(xsm3_decryption_buffer, 0, sizeof(xsm3_decryption_buffer));
