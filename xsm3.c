@@ -85,7 +85,7 @@ static const uint8_t xsm3_key_0x1E[0x10] = {
 // };
 
 // response to give to the given challenge command
-uint8_t xsm3_challenge_response[0x30];
+uint8_t xsm3_challenge_response[0x30] __attribute__((aligned(8)));;
 // console id fetched from challenge init packet
 uint8_t xsm3_console_id[0x8];
 
@@ -97,11 +97,11 @@ static uint8_t xsm3_kv_2des_key_2[0x10];
 static bool xsm3_has_kv_keys = false;
 
 // temporary buffer for decrypting packets
-static uint8_t xsm3_decryption_buffer[0x30];
+static uint8_t xsm3_decryption_buffer[0x30] __attribute__((aligned(8)));;
 // identification data for the current device
 static uint8_t xsm3_identification_data[0x20];
 // random data sent from the console during the challenge init stage
-static uint8_t xsm3_random_console_data[0x10];
+static uint8_t xsm3_random_console_data[0x10] __attribute__((aligned(8)));;
 static uint8_t xsm3_random_console_data_enc[0x10];
 static uint8_t xsm3_random_console_data_swap[0x10];
 static uint8_t xsm3_random_console_data_swap_enc[0x10];
@@ -182,7 +182,7 @@ void xsm3_generate_kv_keys(const uint8_t console_id[0x8]) {
     xsm3_has_kv_keys = true;
     // make a sha-1 hash of the console id
     uint8_t console_id_hash[0x14];
-    ExCryptSha(console_id, 0x8, console_id_hash, 0x14);
+    ExCryptSha(console_id, 0x8, console_id_hash);
     // encrypt it with the root keys for 1st party controllers
     UsbdSecXSM3AuthenticationCrypt(xsm3_root_key_0x23, console_id_hash, 0x10, xsm3_kv_2des_key_1, 1);
     UsbdSecXSM3AuthenticationCrypt(xsm3_root_key_0x24, console_id_hash + 0x4, 0x10, xsm3_kv_2des_key_2, 1);
@@ -238,7 +238,7 @@ void xsm3_do_challenge_init(uint8_t challenge_packet[0x22]) {
     memcpy(xsm3_decryption_buffer, xsm3_random_controller_data, 0x10);
     memcpy(xsm3_decryption_buffer + 0x10, xsm3_random_console_data, 0x10);
     // save the sha1 hash of the decrypted contents for later
-    ExCryptSha(xsm3_decryption_buffer, 0x20, xsm3_challenge_init_hash, 0x14);
+    ExCryptSha(xsm3_decryption_buffer, 0x20, xsm3_challenge_init_hash);
 
     // encrypt challenge response packet using the encrypted random key
     UsbdSecXSM3AuthenticationCrypt(xsm3_random_console_data_enc, xsm3_decryption_buffer, 0x20, xsm3_challenge_response + 0x5, 1);
@@ -255,7 +255,7 @@ void xsm3_do_challenge_init(uint8_t challenge_packet[0x22]) {
 }
 
 void xsm3_do_challenge_verify(uint8_t challenge_packet[0x16]) {
-    uint8_t incoming_packet_mac[0x8];
+    uint8_t incoming_packet_mac[0x8] __attribute__((aligned(8)));
 
     // validate the checksum
     if (!xsm3_verify_checksum(challenge_packet)) {
