@@ -57,3 +57,42 @@ void xsm3_setup_request_handler(usb_setup_request* ctrl) {
     }
 }
 ```
+
+## Authentication flow
+
+**Important**: The Xbox 360 attempts to re-authenticate at various points during the power cycle. It is therefore 
+essential to **persist** the pre-computed authentication values throughout all authentication stages while the 
+microcontroller remains connected. Failing to do so will cause the Xbox 360 to treat the microcontroller as 
+unauthenticated after a full power cycle.
+
+The authentication flow described below outlines the steps performed by an Xbox 360 Slim (Trinity) before 
+recognizing a device as authentic.
+
+```mermaid
+sequenceDiagram
+    Xbox->>+Pico: Begin authentication (REQ_1)
+    Pico-->>libxsm3: xsm3_initialise_state
+    Pico-->>libxsm3: xsm3_set_identification_data(xsm3_id_data_ms_controller)
+    Pico->>+Xbox: xsm3_id_data_ms_controller
+    Xbox->>+Pico: Init auth challenge (REQ_2)
+    Pico-->>libxsm3: xsm3_do_challenge_init
+    Xbox->>+Pico: Done (REQ_5)
+    Pico->>+Xbox: STATE_COMPLETE (2)
+    Xbox->>+Pico: Auth Challenge (REQ_4)
+    Pico->>Xbox: xsm3_challenge_response
+    Xbox->>+Pico: Challenge Verify (REQ_3)
+    Pico-->>libxsm3: xsm3_do_challenge_verify
+    Xbox->>+Pico: Done (REQ_5)
+    Pico->>+Xbox: STATE_COMPLETE (2)
+    Xbox->>+Pico: Auth Challenge (REQ_4)
+    Pico->>Xbox: xsm3_challenge_response
+    Xbox->>+Pico: Challenge Verify (REQ_3)
+    Pico-->>libxsm3: xsm3_do_challenge_verify
+    Xbox->>+Pico: Done (REQ_5)
+    Pico->>+Xbox: STATE_COMPLETE (2)
+    Xbox->>+Pico: Auth Challenge (REQ_4)
+```
+
+Each time the Xbox is powered on, it will attempt to repeat the authentication flow described above. If the previously 
+authenticated microcontroller remains connected, it is crucial to reuse the same ```xsm3_id_data_ms_controller``` and 
+not call ```xsm3_initialise_state``` again, as this function completely resets the authentication state.
